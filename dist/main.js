@@ -161,7 +161,7 @@ exports.clone = function (obj) {
       copy[key] = obj[key];
     });
 
-    return copy;
+    return cycle.decycle(copy);
   }
   else if (!(obj instanceof Object)) {
     return obj;
@@ -180,17 +180,19 @@ function clone(obj) {
   var copy = Array.isArray(obj) ? [] : {};
 
   for (var i in obj) {
-    if (Array.isArray(obj[i])) {
-      copy[i] = obj[i].slice(0);
-    }
-    else if (obj[i] instanceof Buffer) {
+    if (obj.hasOwnProperty(i)) {
+      if (Array.isArray(obj[i])) {
         copy[i] = obj[i].slice(0);
-    }
-    else if (typeof obj[i] != 'function') {
-      copy[i] = obj[i] instanceof Object ? exports.clone(obj[i]) : obj[i];
-    }
-    else if (typeof obj[i] === 'function') {
-      copy[i] = obj[i];
+      }
+      else if (obj[i] instanceof Buffer) {
+        copy[i] = obj[i].slice(0);
+      }
+      else if (typeof obj[i] != 'function') {
+        copy[i] = obj[i] instanceof Object ? exports.clone(obj[i]) : obj[i];
+      }
+      else if (typeof obj[i] === 'function') {
+        copy[i] = obj[i];
+      }
     }
   }
 
@@ -219,7 +221,7 @@ exports.log = function (options) {
         : exports.timestamp,
       timestamp   = options.timestamp ? timestampFn() : null,
       showLevel   = options.showLevel === undefined ? true : options.showLevel,
-      meta        = options.meta !== null && options.meta !== undefined && !(options.meta instanceof Error)
+      meta        = options.meta !== null && options.meta !== undefined
         ? exports.clone(options.meta)
         : options.meta || null,
       output;
@@ -295,6 +297,11 @@ exports.log = function (options) {
   //
   if (typeof options.formatter == 'function') {
     options.meta = meta || options.meta;
+    if (options.meta instanceof Error) {
+      // Force converting the Error to an plain object now so it
+      // will not be messed up by decycle() when cloning options
+      options.meta = exports.clone(options.meta);
+    }
     return String(options.formatter(exports.clone(options)));
   }
 
@@ -313,10 +320,6 @@ exports.log = function (options) {
     : options.message;
 
   if (meta !== null && meta !== undefined) {
-    if (meta && meta instanceof Error && meta.stack) {
-      meta = meta.stack;
-    }
-
     if (typeof meta !== 'object') {
       output += ' ' + meta;
     }
@@ -457,7 +460,7 @@ exports.serialize = function (obj, key) {
 // `tail -f` a file. Options must include file.
 //
 exports.tailFile = function(options, callback) {
-  var buffer = new Buffer(64 * 1024)
+  var buffer = Buffer.alloc(64 * 1024)
     , decode = new StringDecoder('utf8')
     , stream = new Stream
     , buff = ''
@@ -2444,9 +2447,9 @@ var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
     }
     // AMD / RequireJS
     else if (true) {
-        !(__WEBPACK_AMD_DEFINE_ARRAY__ = [], __WEBPACK_AMD_DEFINE_RESULT__ = function () {
+        !(__WEBPACK_AMD_DEFINE_ARRAY__ = [], __WEBPACK_AMD_DEFINE_RESULT__ = (function () {
             return async;
-        }.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
+        }).apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
 				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
     }
     // included directly via <script> tag
@@ -2547,14 +2550,7 @@ function timestamp() {
 };
 
 function formatter(options) {
-  let { timestamp, level: severity, message, meta } = options;
-  let logTimestamp = timestamp();
-
-  let seconds = Math.floor(logTimestamp / 1000);
-  let milli = new Date(logTimestamp).getMilliseconds();
-  let nanos = 0;
-
-  let channel = 'not-defined';
+  let { level: severity, message, meta } = options;
 
   if (!message) {
     message = '';
@@ -2563,8 +2559,6 @@ function formatter(options) {
   let log = {
     message,
     severity,
-    channel,
-    timestamp: { seconds, milli, nanos },
   };
 
   if (isPojo(meta)) {
@@ -2591,7 +2585,7 @@ function sanitizeLog(log) {
 /* 13 */
 /***/ (function(module, exports) {
 
-module.exports = {"_from":"winston","_id":"winston@2.4.1","_inBundle":false,"_integrity":"sha512-k/+Dkzd39ZdyJHYkuaYmf4ff+7j+sCIy73UCOWHYA67/WXU+FF/Y6PF28j+Vy7qNRPHWO+dR+/+zkoQWPimPqg==","_location":"/winston","_phantomChildren":{},"_requested":{"type":"tag","registry":true,"raw":"winston","name":"winston","escapedName":"winston","rawSpec":"","saveSpec":null,"fetchSpec":"latest"},"_requiredBy":["#USER","/"],"_resolved":"https://registry.npmjs.org/winston/-/winston-2.4.1.tgz","_shasum":"a3a9265105564263c6785b4583b8c8aca26fded6","_spec":"winston","_where":"/Users/remigiuszambroziak/Documents/letsdeal/logger","author":{"name":"Charlie Robbins","email":"charlie.robbins@gmail.com"},"bugs":{"url":"https://github.com/winstonjs/winston/issues"},"bundleDependencies":false,"dependencies":{"async":"~1.0.0","colors":"1.0.x","cycle":"1.0.x","eyes":"0.1.x","isstream":"0.1.x","stack-trace":"0.0.x"},"deprecated":false,"description":"A multi-transport async logging library for Node.js","devDependencies":{"cross-spawn-async":"^2.0.0","hock":"1.x.x","std-mocks":"~1.0.0","vows":"0.7.x"},"engines":{"node":">= 0.10.0"},"homepage":"https://github.com/winstonjs/winston#readme","keywords":["winston","logging","sysadmin","tools"],"license":"MIT","main":"./lib/winston","maintainers":[{"name":"Jarrett Cruger","email":"jcrugzz@gmail.com"},{"name":"Alberto Pose","email":"albertopose@gmail.com"}],"name":"winston","repository":{"type":"git","url":"git+https://github.com/winstonjs/winston.git"},"scripts":{"test":"vows --spec --isolate"},"version":"2.4.1"}
+module.exports = {"_from":"winston@^2.4.1","_id":"winston@2.4.3","_inBundle":false,"_integrity":"sha512-GYKuysPz2pxYAVJD2NPsDLP5Z79SDEzPm9/j4tCjkF/n89iBNGBMJcR+dMUqxgPNgoSs6fVygPi+Vl2oxIpBuw==","_location":"/winston","_phantomChildren":{},"_requested":{"type":"range","registry":true,"raw":"winston@^2.4.1","name":"winston","escapedName":"winston","rawSpec":"^2.4.1","saveSpec":null,"fetchSpec":"^2.4.1"},"_requiredBy":["/"],"_resolved":"https://registry.npmjs.org/winston/-/winston-2.4.3.tgz","_shasum":"7a9fdab371b6d3d9b63a592947846d856948c517","_spec":"winston@^2.4.1","_where":"/Users/duxet/git/logger","author":{"name":"Charlie Robbins","email":"charlie.robbins@gmail.com"},"bugs":{"url":"https://github.com/winstonjs/winston/issues"},"bundleDependencies":false,"dependencies":{"async":"~1.0.0","colors":"1.0.x","cycle":"1.0.x","eyes":"0.1.x","isstream":"0.1.x","stack-trace":"0.0.x"},"deprecated":false,"description":"A multi-transport async logging library for Node.js","devDependencies":{"cross-spawn-async":"^2.0.0","hock":"1.x.x","std-mocks":"~1.0.0","vows":"0.7.x"},"engines":{"node":">= 0.10.0"},"homepage":"https://github.com/winstonjs/winston#readme","keywords":["winston","logging","sysadmin","tools"],"license":"MIT","main":"./lib/winston","maintainers":[{"name":"Jarrett Cruger","email":"jcrugzz@gmail.com"},{"name":"Alberto Pose","email":"albertopose@gmail.com"}],"name":"winston","repository":{"type":"git","url":"git+https://github.com/winstonjs/winston.git"},"scripts":{"test":"vows --spec --isolate"},"version":"2.4.3"}
 
 /***/ }),
 /* 14 */
@@ -4228,6 +4222,8 @@ var Http = exports.Http = function (options) {
   this.auth = options.auth;
   this.path = options.path || '';
   this.agent = options.agent;
+  this.headers = options.headers || {};
+  this.headers['content-type'] = 'application/json';
 
   if (!this.port) {
     this.port = this.ssl ? 443 : 80;
@@ -4263,7 +4259,7 @@ Http.prototype._request = function (options, callback) {
     port: this.port,
     path: '/' + path.replace(/^\//, ''),
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: this.headers,
     agent: this.agent,
     auth: (auth) ? auth.username + ':' + auth.password : ''
   });
@@ -4283,7 +4279,7 @@ Http.prototype._request = function (options, callback) {
     res.resume();
   });
 
-  req.end(new Buffer(JSON.stringify(options), 'utf8'));
+  req.end(new Buffer.from(JSON.stringify(options), 'utf8'));
 };
 
 //
@@ -4394,7 +4390,7 @@ Http.prototype.query = function (options, callback) {
 //
 Http.prototype.stream = function (options) {
   options = options || {};
-  
+
   var self = this,
       stream = new Stream,
       req,
